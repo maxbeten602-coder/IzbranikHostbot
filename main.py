@@ -1047,7 +1047,7 @@ async def cb_db_set(cq: types.CallbackQuery):
 def main_menu_kb(uid: int):
     rows = [
         [InlineKeyboardButton(text="Open app", web_app=WebAppInfo(url=webapp_url_for(uid)))],
-        [InlineKeyboardButton(text="Пополнить баланс", callback_data="pay_menu")],
+        [InlineKeyboardButton(text="Пополнить звёздами (Stars)", callback_data="pay_menu")],
         [InlineKeyboardButton(text="Рефералы", callback_data="refs_menu")],
         [
             InlineKeyboardButton(text="Промокод", callback_data="promo_enter"),
@@ -1120,6 +1120,15 @@ async def cmd_start(message: types.Message, state: FSMContext):
         elif st == "already":
             await message.answer("Ты уже приглашён другим игроком — эта ссылка не засчитана (реферал закрепляется за первым).")
 
+    # Ссылка пополнения из мини-аппа (start=pay_<stars>) — запоминаем сумму, чтобы счёт пришёл даже после проверки подписки
+    if len(args) > 1 and args[1].startswith("pay_"):
+        try:
+            _amt = int(args[1][len("pay_"):])
+            if _amt >= MIN_TOPUP_STARS:
+                PENDING_PAY[message.from_user.id] = min(_amt, 100000)
+        except ValueError:
+            pass
+
     # Проверка подписки (обязательна для всех, кроме админов)
     if not await is_fully_subscribed(message.from_user.id):
         await message.answer(SUBSCRIBE_TEXT, reply_markup=subscribe_kb(), parse_mode="HTML")
@@ -1128,13 +1137,12 @@ async def cmd_start(message: types.Message, state: FSMContext):
     await ref_confirm(message.from_user)
 
     if len(args) > 1 and args[1].startswith("pay_"):
-        try:
-            amount = int(args[1].replace("pay_", ""))
-            if amount >= MIN_TOPUP_STARS:
-                await send_invoice(message, amount)
-                return
-        except ValueError:
-            pass
+        amount = PENDING_PAY.pop(message.from_user.id, 0)
+        if amount:
+            await send_topup_invoice(message.chat.id, message.from_user.id, amount)
+            return
+        await message.answer(topup_text(), reply_markup=topup_kb(), parse_mode="HTML")
+        return
 
     # Promo link: t.me/bot?start=promo_CODE  (и вкладка «Промо» в мини-аппе)
     if len(args) > 1 and args[1].startswith("promo_"):
@@ -1177,9 +1185,8 @@ async def cmd_start(message: types.Message, state: FSMContext):
 
     await message.answer(
         "Izbrannik Gift\n\n"
-        "Open the app to play cases and games.\n"
-        "Balance is saved on your Telegram account (CloudStorage) "
-        "so phone and PC stay in sync.",
+        "Открой приложение, чтобы играть в кейсы и игры.\n"
+        f"Пополнить баланс звёздами Telegram: кнопка ниже или команда /pay (1 Star = {TON_PER_STAR:g} TON).",
         reply_markup=main_menu_kb(message.from_user.id),
     )
 
@@ -1200,6 +1207,9 @@ async def cb_check_subs(cq: types.CallbackQuery):
                 reply_markup=main_menu_kb(cq.from_user.id),
             )
         await cq.answer("OK")
+        amount = PENDING_PAY.pop(cq.from_user.id, 0)
+        if amount:
+            await send_topup_invoice(cq.message.chat.id, cq.from_user.id, amount)
         return
 
     missing = []
@@ -1223,20 +1233,45 @@ async def cb_check_subs(cq: types.CallbackQuery):
     await cq.answer(f"Нет подписки: {detail}", show_alert=True)
 
 
+PENDING_PAY: dict[int, int] = {}
+
+
 async def send_topup_invoice(chat_id: int, user_id: int, stars: int):
-    """Счёт в Telegram Stars. Игрок платит stars, получает stars * TON_PER_STAR TON."""
+    """Счёт в Telegram Stars (XTR). Игрок платит stars, получает stars * TON_PER_STAR TON."""
+    stars = int(stars)
     ton = stars_to_ton(stars)
     bonus = ""
     if stars >= WD_UNLOCK_STARS:
-        bonus = f"\nПлюс вывод подарков на {WD_WINDOW_DAYS} дней."
-    await bot.send_invoice(
-        chat_id=chat_id,
-        title=f"Пополнение: {fmt_ton(ton)} TON",
-        description=f"{stars} Stars = {fmt_ton(ton)} TON (1 Star = {TON_PER_STAR:g} TON).{bonus}",
-        payload=f"topup_{user_id}_{stars}",
-        currency="XTR",
-        prices=[LabeledPrice(label=f"{stars} Stars", amount=stars)],
-    )
+        bonus = f" Плюс вывод подарков на {WD_WINDOW_DAYS} дн."
+    try:
+        await bot.send_invoice(
+            chat_id=chat_id,
+            title=f"Пополнение: {fmt_ton(ton)} TON"[:32],
+            description=(f"{stars} Stars = {fmt_ton(ton)} TON (1 Star = {TON_PER_STAR:g} TON).{bonus}")[:255],
+            payload=f"topup_{user_id}_{stars}",
+            provider_token="",  # для Telegram Stars (XTR) токен провайдера должен быть пустым
+            currency="XTR",
+            prices=[LabeledPrice(label=f"{stars} Stars", amount=stars)],
+        )
+    except Exception as e:
+        log.error("send_invoice failed (user %s, %s stars): %s", user_id, stars, e)
+        try:
+            await bot.send_message(chat_id, "Не удалось выставить счёт в Stars. Попробуй ещё раз позже или напиши в поддержку.")
+        except Exception:
+            pass
+
+
+@dp.message(Command("pay", "topup"))
+async def cmd_pay(message: types.Message, state: FSMContext):
+    await state.clear()
+    if not await is_fully_subscribed(message.from_user.id):
+        await message.answer(SUBSCRIBE_TEXT, reply_markup=subscribe_kb(), parse_mode="HTML")
+        return
+    parts = (message.text or "").split()
+    if len(parts) > 1 and parts[1].isdigit() and MIN_TOPUP_STARS <= int(parts[1]) <= 100000:
+        await send_topup_invoice(message.chat.id, message.from_user.id, int(parts[1]))
+        return
+    await message.answer(topup_text(), reply_markup=topup_kb(), parse_mode="HTML")
 
 
 async def send_invoice(message: types.Message, amount: int):
@@ -1336,7 +1371,11 @@ async def pay_custom_msg(message: types.Message, state: FSMContext):
 
 @dp.pre_checkout_query()
 async def pre_checkout(query: PreCheckoutQuery):
-    await bot.answer_pre_checkout_query(query.id, ok=True)
+    ok = query.currency == "XTR" and int(query.total_amount) >= MIN_TOPUP_STARS and (query.invoice_payload or "").startswith("topup_")
+    if ok:
+        await bot.answer_pre_checkout_query(query.id, ok=True)
+    else:
+        await bot.answer_pre_checkout_query(query.id, ok=False, error_message="Некорректный платёж. Попробуй ещё раз.")
 
 
 @dp.message(F.successful_payment)
@@ -1353,6 +1392,17 @@ async def success_payment(message: types.Message):
     if sp.currency == "XTR":
         stars = int(sp.total_amount)  # сколько Stars реально оплачено — доверяем Telegram, а не payload
     amount = stars_to_ton(stars)      # TON на баланс: stars * 0.0091
+
+    # защита от двойного зачисления одного и того же платежа
+    charge_id = sp.telegram_payment_charge_id or ""
+    paid_file = DATA_DIR / "paid_charges.json"
+    paid = load_json(paid_file, [])
+    if charge_id and charge_id in paid:
+        log.warning("duplicate payment ignored: %s", charge_id)
+        return
+    if charge_id:
+        paid.append(charge_id)
+        save_json(paid_file, paid[-5000:])
 
     local_db.add_balance(user_id, amount, deposited=True)
     try:
@@ -2184,6 +2234,14 @@ async def main():
         log.warning("delete_webhook: %s", e)
     await start_local_server()
     asyncio.create_task(ban_expiry_loop())
+    try:
+        await bot.set_my_commands([
+            types.BotCommand(command="start", description="Меню"),
+            types.BotCommand(command="pay", description="Пополнить баланс звёздами (Stars)"),
+        ])
+    except Exception as e:
+        log.warning("set_my_commands: %s", e)
+    log.info("ПЛАТЕЖИ STARS: бот запущен как @%s — именно этот бот должен быть открыт в мини-аппе (NX.BOT в core.js)", BOT_USERNAME)
     log.info("Bot starting as @%s (data dir: %s) ...", BOT_USERNAME, DATA_DIR)
     await dp.start_polling(bot)
 
