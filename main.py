@@ -80,8 +80,8 @@ BOT_USERNAME = os.getenv("BOT_USERNAME", "IzbrannikStar_bot")  # уточняе�
 # Обязательные подписки (бот должен быть админом в канале и чате)
 CHANNEL_ID = os.getenv("CHANNEL_ID", "@nexvendrop")
 CHAT_ID = os.getenv("CHAT_ID", "@nexvendropchat")
-CHANNEL_LINK = os.getenv("CHANNEL_LINK", "https://t.me/+AuqzID2TO602ZDEy")
-CHAT_LINK = os.getenv("CHAT_LINK", "https://t.me/+u8wJNg-Iatc0MmZi")
+CHANNEL_LINK = os.getenv("CHANNEL_LINK", "https://t.me/nexvendrop")
+CHAT_LINK = os.getenv("CHAT_LINK", "https://t.me/nexvendropchat")
 
 DATA_DIR = Path(os.getenv("NX_DATA_DIR") or (Path(__file__).resolve().parent.parent / "db"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
