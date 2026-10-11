@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-ROOT = Path(os.getenv("NX_DATA_DIR") or (Path(__file__).resolve().parent.parent / "db"))
+ROOT = Path(os.getenv("NX_DATA_DIR") or (Path(__file__).resolve().parent / "db"))
 USERS = ROOT / "users"
 DROPS = ROOT / "drops.json"
 WITHDRAWS = ROOT / "withdraws.json"
