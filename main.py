@@ -45,7 +45,7 @@ if not re.fullmatch(r"\d{6,}:[A-Za-z0-9_-]{30,}", BOT_TOKEN):
         "\n\nBOT_TOKEN не задан или неверный (сейчас: "
         + ("пусто" if not BOT_TOKEN else f"{len(BOT_TOKEN)} символов") + ").\n"
         "Открой на хостинге раздел Variables / Переменные окружения и добавь переменную\n"
-        "  BOT_TOKEN = 8992373179:AAG8N36ymSzgmgy1PHiocWM0GdCd-d76t18   (токен целиком из @BotFather, без кавычек и пробелов)\n"
+        "  BOT_TOKEN = 123456789:AAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx   (токен целиком из @BotFather, без кавычек и пробелов)\n"
         "и перезапусти деплой.\n"
     )
 WEBAPP_URL = os.getenv("WEBAPP_URL", "https://maxbeten602-coder.github.io/IzbranikSites/")
@@ -78,10 +78,10 @@ def fmt_ton(x: float) -> str:
 BOT_USERNAME = os.getenv("BOT_USERNAME", "IzbrannikStar_bot")  # уточняется через get_me() при старте
 
 # Обязательные подписки (бот должен быть админом в канале и чате)
-CHANNEL_ID = os.getenv("CHANNEL_ID", "@nexvendrop")
-CHAT_ID = os.getenv("CHAT_ID", "@nexvendropchat")
-CHANNEL_LINK = os.getenv("CHANNEL_LINK", "https://t.me/nexvendrop")
-CHAT_LINK = os.getenv("CHAT_LINK", "https://t.me/nexvendropchat")
+CHANNEL_ID = os.getenv("CHANNEL_ID", "@IzbrannikGift")
+CHAT_ID = os.getenv("CHAT_ID", "@IzbrannikGiftChat")
+CHANNEL_LINK = os.getenv("CHANNEL_LINK", "https://t.me/IzbrannikGift")
+CHAT_LINK = os.getenv("CHAT_LINK", "https://t.me/IzbrannikGiftChat")
 
 DATA_DIR = Path(os.getenv("NX_DATA_DIR") or (Path(__file__).resolve().parent.parent / "db"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
