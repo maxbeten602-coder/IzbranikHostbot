@@ -1,30 +1,6 @@
 """Izbrannik Gift bot — no emojis, folder DB + optional Firebase mirror."""
 from __future__ import annotations
 
-# ---- автонастройка: работает даже если хост не поставил requirements.txt ----
-import os as _os, sys as _sys, subprocess as _sp, importlib as _il
-_os.chdir(_os.path.dirname(_os.path.abspath(__file__)))
-_sys.path.insert(0, _os.getcwd())
-for _k, _v in {
-    "BOT_TOKEN": "8992373179:AAG8N36ymSzgmgy1PHiocWM0GdCd-d76t18",  # переменная BOT_TOKEN на хосте важнее
-    "WEBAPP_URL": "https://maxbeten602-coder.github.io/IzbranikSites/",
-    "OWNER_ID": "8133917568", "ADMIN_IDS": "8133917568",
-    "CHANNEL_ID": "@IzbrannikGift", "CHAT_ID": "@IzbrannikGiftChat",
-    "CHANNEL_LINK": "https://t.me/IzbrannikGift", "CHAT_LINK": "https://t.me/IzbrannikGiftChat",
-}.items():
-    if not (_os.environ.get(_k) or "").strip():
-        _os.environ[_k] = _v
-for _m, _p in (("aiogram", "aiogram>=3.13,<4"), ("aiohttp", "aiohttp>=3.9"), ("httpx", "httpx>=0.27"), ("dotenv", "python-dotenv>=1.0")):
-    try:
-        _il.import_module(_m)
-    except ImportError:
-        print("Ставлю библиотеку", _p, flush=True)
-        _r = _sp.call([_sys.executable, "-m", "pip", "install", "-q", "--no-cache-dir", _p])
-        if _r != 0:
-            _sp.check_call([_sys.executable, "-m", "pip", "install", "-q", "--no-cache-dir", "--break-system-packages", _p])
-        _il.invalidate_caches()
-# ------------------------------------------------------------------------------
-
 import asyncio
 import html
 import base64
@@ -69,7 +45,7 @@ if not re.fullmatch(r"\d{6,}:[A-Za-z0-9_-]{30,}", BOT_TOKEN):
         "\n\nBOT_TOKEN не задан или неверный (сейчас: "
         + ("пусто" if not BOT_TOKEN else f"{len(BOT_TOKEN)} символов") + ").\n"
         "Открой на хостинге раздел Variables / Переменные окружения и добавь переменную\n"
-        "  BOT_TOKEN = 123456789:AAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx   (токен целиком из @BotFather, без кавычек и пробелов)\n"
+        "  BOT_TOKEN = 8992373179:AAG8N36ymSzgmgy1PHiocWM0GdCd-d76t18   (токен целиком из @BotFather, без кавычек и пробелов)\n"
         "и перезапусти деплой.\n"
     )
 WEBAPP_URL = os.getenv("WEBAPP_URL", "https://maxbeten602-coder.github.io/IzbranikSites/")
@@ -99,15 +75,15 @@ def stars_to_ton(stars: int) -> float:
 
 def fmt_ton(x: float) -> str:
     return f"{round(float(x), 4):.4f}".rstrip("0").rstrip(".")
-BOT_USERNAME = os.getenv("BOT_USERNAME", "IzbrannikStar_bot")  # уточняется через get_me() при старте
+BOT_USERNAME = os.getenv("BOT_USERNAME", "IzbrannikGift_bot")  # уточняется через get_me() при старте
 
 # Обязательные подписки (бот должен быть админом в канале и чате)
-CHANNEL_ID = os.getenv("CHANNEL_ID", "@IzbrannikGift")
-CHAT_ID = os.getenv("CHAT_ID", "@IzbrannikGiftChat")
-CHANNEL_LINK = os.getenv("CHANNEL_LINK", "https://t.me/IzbrannikGift")
-CHAT_LINK = os.getenv("CHAT_LINK", "https://t.me/IzbrannikGiftChat")
+CHANNEL_ID = os.getenv("CHANNEL_ID", "@nexvendrop")
+CHAT_ID = os.getenv("CHAT_ID", "@nexvendropchat")
+CHANNEL_LINK = os.getenv("CHANNEL_LINK", "https://t.me/nexvendrop")
+CHAT_LINK = os.getenv("CHAT_LINK", "https://t.me/nexvendropchat")
 
-DATA_DIR = Path(os.getenv("NX_DATA_DIR") or (Path(__file__).resolve().parent / "db"))
+DATA_DIR = Path(os.getenv("NX_DATA_DIR") or (Path(__file__).resolve().parent.parent / "db"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 REFUNDS_FILE = DATA_DIR / "refunds.json"
 USERS_FILE = DATA_DIR / "bot_users.json"
