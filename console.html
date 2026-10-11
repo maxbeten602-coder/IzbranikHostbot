@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Izbrannik Console</title>
+<style>
+:root{--bg:#000;--card:#0a0a0a;--line:#2a2a2a;--tx:#fff;--mut:#8c8c8c;--g:#39ff88;--b:#fff;--r:#ff3b55;--y:#ffffff}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(900px 420px at 50% -12%,rgba(57,255,136,.13),transparent 62%),var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
+.w{max-width:760px;margin:0 auto;padding:24px 16px 60px}
+h1{font-size:22px;margin:0 0 4px;letter-spacing:.5px}h1::after{content:"";display:block;width:46px;height:3px;background:var(--g);box-shadow:0 0 12px var(--g);margin-top:8px;border-radius:2px}.sub{color:var(--mut);margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:14px}
+.lab{color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+.sw{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.opt{border:2px solid var(--line);background:#050505;color:var(--tx);border-radius:16px;padding:18px 10px;font-size:17px;font-weight:800;cursor:pointer;transition:.15s;text-align:center}
+.opt small{display:block;font-weight:500;color:var(--mut);font-size:12px;margin-top:4px}
+.opt:hover{border-color:#5a5a5a}.opt.on{border-color:var(--g);background:linear-gradient(180deg,#0c1f15,#050a07);box-shadow:0 0 0 3px rgba(57,255,136,.14),0 0 28px rgba(57,255,136,.25)}
+.opt.on.fb{border-color:#fff;background:linear-gradient(180deg,#1a1a1a,#080808);box-shadow:0 0 0 3px rgba(255,255,255,.12),0 0 24px rgba(255,255,255,.18)}
+.opt[disabled]{opacity:.6;cursor:wait}
+.row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #1a1a1a}.row:last-child{border:0}
+.row b{font-weight:600}.ok{color:var(--g)}.bad{color:var(--r)}.warn{color:#ffd166}
+button.act{background:#0f0f0f;color:var(--tx);border:1px solid var(--line);border-radius:12px;padding:11px 14px;font-size:14px;font-weight:700;cursor:pointer;margin:4px 6px 4px 0}
+button.act:hover{border-color:var(--g);box-shadow:0 0 14px rgba(57,255,136,.25)}button.act[disabled]{opacity:.5}
+pre{background:#050505;border:1px solid #1f1f1f;border-radius:12px;padding:12px;white-space:pre-wrap;word-break:break-word;color:#cfcfcf;font-size:13px;margin:10px 0 0;max-height:240px;overflow:auto}
+.pill{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700}
+.pill.pc{background:rgba(57,255,136,.14);color:var(--g);text-shadow:0 0 10px rgba(57,255,136,.5)}.pill.fb{background:rgba(255,255,255,.12);color:#fff}
+</style></head><body><div class="w">
+<h1>Izbrannik Console</h1><div class="sub">Выбор базы данных для мини-аппа и бота. Доступно только на этом ПК.</div>
+
+<div class="card"><div class="lab">База данных</div>
+  <div class="sw">
+    <button class="opt fb" id="bFb" onclick="setMode('firebase')">Firebase<small>облако Google (лимиты бесплатной квоты)</small></button>
+    <button class="opt" id="bPc" onclick="setMode('pc')">ПК<small>локально на этом компьютере</small></button>
+  </div>
+  <div id="modeNote" class="sub" style="margin:12px 0 0"></div>
+</div>
+
+<div class="card"><div class="lab">Состояние</div><div id="st"></div></div>
+
+<div class="card"><div class="lab">Действия</div>
+  <button class="act" onclick="act('fbtest',this)">Проверить Firebase</button>
+  <button class="act" onclick="act('exttest',this)">Проверить доступ из интернета</button>
+  <button class="act" onclick="if(confirm('Скопировать данные из Firebase в базу ПК? Существующие записи с теми же ID будут перезаписаны.'))act('import',this)">Импорт Firebase → ПК</button>
+  <pre id="out" style="display:none"></pre>
+</div>
+
+<div class="card"><div class="lab">Как это работает</div>
+<div class="sub" style="margin:0">Режим «ПК»: мини-апп и бот читают/пишут данные (лидерборд, онлайн, сохранения, баны, награды, промокоды) в файл <b>db/localfs.json</b> на этом компьютере.
+Чтобы телефоны игроков достучались до ПК, должен работать туннель (<b>start_tunnel.bat</b>), а его адрес — прописан в <b>config.js</b> (pcApi). Если ПК выключен или туннель не запущен, приложение само уйдёт на Firebase.
+Переключение подхватывается приложением в течение минуты (оно перезагрузится само).</div></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);let busy=false;
+async function api(p,body){const r=await fetch(p,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});return r.json()}
+function row(k,v,c){return '<div class="row"><span>'+k+'</span><b class="'+(c||'')+'">'+v+'</b></div>'}
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+function render(s){
+  const pc=s.mode==='pc';$('bPc').classList.toggle('on',pc);$('bFb').classList.toggle('on',!pc);
+  $('modeNote').innerHTML='Сейчас активна: <span class="pill '+(pc?'pc':'fb')+'">'+(pc?'ПК':'Firebase')+'</span>'+(pc&&!s.pcApiHint?' &nbsp;<span class="warn">укажи PUBLIC_URL в .env, иначе не проверить доступ из интернета</span>':'');
+  const c=s.counts||{};let h='';
+  h+=row('Бот','работает','ok');
+  h+=row('Локальный сервер','порт '+s.port,'ok');
+  h+=row('Внешний адрес (PUBLIC_URL)',s.publicUrl?esc(s.publicUrl):'не задан',s.publicUrl?'':'warn');
+  h+=row('Проект Firebase',esc(s.fbProject)+' · '+esc(s.fbDb));
+  h+=row('Данные на ПК',Object.keys(c).length?Object.entries(c).map(([k,v])=>esc(k.replace(/^nx_/,''))+': '+v).join(' · '):'пока пусто');
+  h+=row('Банов в боте',s.bans);
+  $('st').innerHTML=h;
+}
+async function load(){try{render(await api('/admin/status'))}catch(e){$('st').innerHTML='<span class="bad">Нет связи с ботом</span>'}}
+async function setMode(m){if(busy)return;busy=true;document.querySelectorAll('.opt').forEach(b=>b.disabled=true);
+  try{render(await api('/admin/mode',{mode:m}))}catch(e){alert('Ошибка переключения')}
+  document.querySelectorAll('.opt').forEach(b=>b.disabled=false);busy=false}
+async function act(n,btn){btn.disabled=true;const o=$('out');o.style.display='block';o.textContent='Выполняю…';
+  try{const r=await api('/admin/'+n,{});o.textContent=r.text||JSON.stringify(r,null,2)}catch(e){o.textContent='Ошибка: '+e}
+  btn.disabled=false;load()}
+load();setInterval(load,5000);
+</script></body></html>
